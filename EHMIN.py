@@ -1,4 +1,4 @@
-def EHMIN(Db, rate):
+def EHMIN(Db, rate, k):
     def EU(iX, Tk=None):
         if Tk:
             index = Tk['Items'].index(iX)
@@ -16,7 +16,7 @@ def EHMIN(Db, rate):
     def U(X, Tk=None):
         if Tk:
             return sum (
-                IU(ix, Tk) * EU(ix) 
+                IU(ix, Tk) * EU(ix, Tk) 
                 for ix in X
             )
         else:
@@ -28,11 +28,12 @@ def EHMIN(Db, rate):
         
     def PU(X, Tk=None):
         if Tk:
+            for ix in X:
+                print(ix, IU(ix, Tk), EU(ix, Tk))
             return sum (
-                IU(ix, Tk) * EU(ix)
+                IU(ix, Tk) * EU(ix, Tk)
                 for ix in X 
-                if all(ix in Tk['Items'] for ix in X)
-                and EU(ix) > 0
+                if EU(ix, Tk) > 0
             )
         else:
             return sum (
@@ -60,7 +61,7 @@ def EHMIN(Db, rate):
     def PTWU(X):
         return sum (
             PTU(Tk)
-            for Tk in D
+            for Tk in Db
             if all(ix in Tk['Items'] for ix in X)
         )
 
@@ -145,7 +146,9 @@ def EHMIN(Db, rate):
         positive.difference_update(hybrid)
         negative.difference_update(hybrid)
         items_sorted = sorted(items, key = lambda x: get_sorted_key(x, positive, hybrid, negative))
+        print(items)
         return items_sorted
+    
     def second_scan(Db, items):
         min_util = minUtil(rate)
         Db = sorted_transactions(items)
@@ -153,10 +156,11 @@ def EHMIN(Db, rate):
         UL = []
         for Tk in Db:
             PTU_k = 0
+            print("PTWU(a): ", PTWU("a"))
             for ix in Tk['Items']:
                 if PTWU(ix) > min_util:
                     PTU_k += PU(ix, Tk)
-
+            print(f"TOTAL={PTU_k}")
             tmp = {}
             newPTWU = 0
             for ix in Tk['Items']:
@@ -235,7 +239,7 @@ def EHMIN(Db, rate):
                     
                     index_i = items_sorted.index(uk_key[0])
                     index_j = items_sorted.index(ul_key[0])
-
+                    print(uk_key, ul_key, index_i, index_j, EUCS[index_i][index_j])
                     if EUCS[index_i][index_j] >= min_util:
                         C = EHMIN_Combine(uk, ul, pfutils)
                         if C is not None:
@@ -305,7 +309,7 @@ def EHMIN(Db, rate):
     HUP = []
     EHMIN_Mine({}, UL, ())
 
-    return HUP
+    return HUP[:min(k, len(HUP))]
 
 D = [
     {
@@ -353,10 +357,10 @@ D = [
 ]
 
 
-Result = EHMIN(D, 0.49)
+Result = EHMIN(D, 0.356, 20)
 print(min_util)
-for k in Result:
-      print(k)  
+for r in Result:
+      print(r)  
             
             
             
