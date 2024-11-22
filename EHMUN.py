@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+def EMHUN(D, minU, K):
+=======
 def EMHUN(D, minU, k):
+>>>>>>> 4a543d0117663c7fc211f0c56f87ca89326f850d
     """
     Discover high-utility itemsets (HUIs) in a database of transactions with quantitative items.
 
@@ -39,6 +43,7 @@ def EMHUN(D, minU, k):
         return rho, delta, eta
 
     def u(X, transaction=None, D=None):
+        
         """
         Calculate the utility of a set of items X in a transaction or a database of transactions.
 
@@ -53,12 +58,14 @@ def EMHUN(D, minU, k):
         if X == "":
             return 0
         
-        if transaction and not D:
+        # u(X, Tk)
+        if transaction and not D:  
             return sum(
                 transaction['Quantities'][i] * transaction['Profits'][i] 
                 for i, item in enumerate(transaction['Items']) if item in X
             )
 
+        # u(X)
         if D and not transaction:
             return sum(
                 u(X, transaction=transaction) 
@@ -293,6 +300,22 @@ def EMHUN(D, minU, k):
         k (int): The desired number of high utility itemsets to find.
 
         Returns:
+<<<<<<< HEAD
+        list: A list of itemsets that meet or exceed the minimum utility threshold.
+        """
+        results = []  # Initialize a list to collect valid itemsets
+
+        for i in primary_items:
+            B = set(X) | {i}
+            uB = u(B, D=Dx)              
+            
+            Db = create_new_database(Dx, i)    
+            
+            if (uB >= minU):
+                results.append((B, uB))  # Collect itemset and its utility
+            if (uB > minU):
+                results.extend(searchN(eta, B, Db, minU))  # Extend results with valid itemsets from searchN
+=======
         None: The function prints itemsets that meet or exceed the minimum utility threshold.
         """        
         for i in primary_items:
@@ -310,6 +333,7 @@ def EMHUN(D, minU, k):
             
             if (uB > minU):
                 searchN(eta, B, Dx, minU)
+>>>>>>> 4a543d0117663c7fc211f0c56f87ca89326f850d
                 
             UA_RLU = create_RLU_UA(Dx, secondary_items[secondary_items.index(i) + 1:], B)
             UA_RSU = create_RSU_UA(Dx, secondary_items[secondary_items.index(i) + 1:], B)
@@ -317,9 +341,18 @@ def EMHUN(D, minU, k):
             primary_B = [z for z in secondary_items if z in UA_RSU and UA_RSU[z] >= minU]
             secondary_B = [z for z in secondary_items if z in UA_RLU and UA_RLU[z] >= minU]
             
+<<<<<<< HEAD
+            results.extend(search(eta, B, Dx, primary_B, secondary_B, minU))  # Extend results with valid itemsets from recursive search
+
+        return results  # Return the collected results
+
+
+    def searchN(eta, X, Dx, minU):
+=======
             search(eta, B, Dx, primary_B, secondary_B, minU)
             
     def searchN(eta, X, Dx, minU, countK, k):
+>>>>>>> 4a543d0117663c7fc211f0c56f87ca89326f850d
         """
         Perform a recursive search to identify itemsets with utility greater than or equal to a minimum threshold.
 
@@ -335,8 +368,15 @@ def EMHUN(D, minU, k):
         k (int): The desired number of high utility itemsets to find.
 
         Returns:
+<<<<<<< HEAD
+        list: A list of itemsets that meet or exceed the minimum utility threshold.
+        """
+        results = []  # Initialize a list to collect valid itemsets
+
+=======
         None: The function prints itemsets that meet or exceed the minimum utility threshold.
         """        
+>>>>>>> 4a543d0117663c7fc211f0c56f87ca89326f850d
         for i in eta:
             B = set(X) | {i}
             uB = u(B, D=Dx)
@@ -344,16 +384,26 @@ def EMHUN(D, minU, k):
             Db = create_new_database(Dx, B)
 
             if (uB >= minU):
+<<<<<<< HEAD
+                results.append(B)  # Collect itemset
+=======
                 print(B, "= ", uB)
                 countK += 1
                 
             if countK == k:
                 return 
+>>>>>>> 4a543d0117663c7fc211f0c56f87ca89326f850d
             
             UA_RSU = create_RSU_UA(Db, eta[eta.index(i) + 1:], B)
             primary_B = [z for z in eta if z in UA_RSU and UA_RSU[z] >= minU]
             
+<<<<<<< HEAD
+            results.extend(searchN(primary_B, B, Db, minU))  # Extend results with valid itemsets from recursive search
+
+        return results  # Return the collected results
+=======
             searchN(primary_B, B, Dx, minU, countK, k)
+>>>>>>> 4a543d0117663c7fc211f0c56f87ca89326f850d
 
     #Step 2, 3, 4
     rho, delta, eta = partion_items(D)
@@ -377,52 +427,158 @@ def EMHUN(D, minU, k):
     #Step 12
     primary_items = [i for i in secondary_items if UA_SU[i] >= minU]
     
+<<<<<<< HEAD
+    # Assuming 'result' is the output from the search function
+    result = search(eta_sorted, X, D, primary_items, secondary_items, minU)
+
+    # Sort the results based on utility in descending order
+    sorted_results = sorted(result, key=lambda x: x[1], reverse=True)
+
+    # Extract the top K itemsets
+    top_k = sorted_results[:K]
+
+    return top_k
+# D = [
+#     {
+#         'TID': 'T1',
+#         'Items': ['a', 'b', 'd', 'e', 'f', 'g'],
+#         'Quantities': [2, 2, 1, 3, 2, 1],
+#         'Profits': [-2, 1, 4, 1, -1, -2]
+#     },
+#     {
+#         'TID': 'T2',
+#         'Items': ['b', 'c'],
+#         'Quantities': [1, 5],
+#         'Profits': [-1, 1]
+#     },
+#     {
+#         'TID': 'T3',
+#         'Items': ['b', 'c', 'd', 'e', 'f'],
+#         'Quantities': [2, 1, 3, 2, 1],
+#         'Profits': [-1, 1, 4, 1, -1]
+#     },
+#     {
+#         'TID': 'T4',
+#         'Items': ['c', 'd', 'e'],
+#         'Quantities': [2, 1, 3],
+#         'Profits': [1, 4, 1]
+#     },
+#     {
+#         'TID': 'T5',
+#         'Items': ['a', 'f'],
+#         'Quantities': [2, 3],
+#         'Profits': [2, -1]
+#     },
+#     {
+#         'TID': 'T6',
+#         'Items': ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+#         'Quantities': [2, 1, 4, 2, 1, 3, 1],
+#         'Profits': [1, 1, 1, 4, 1, -1, -2]
+#     },
+#     {
+#         'TID': 'T7',
+#         'Items': ['b', 'c', 'e'],
+#         'Quantities': [3, 2, 2],
+#         'Profits': [1, 2, 2]
+#     }
+# ]
+=======
     #Step 13
     print(search(eta_sorted, X, D, primary_items, secondary_items, minU, [0], k))
     
+>>>>>>> 4a543d0117663c7fc211f0c56f87ca89326f850d
     
 D = [
     {
         'TID': 'T1',
-        'Items': ['a', 'b', 'd', 'e', 'f', 'g'],
-        'Quantities': [2, 2, 1, 3, 2, 1],
-        'Profits': [-2, 1, 4, 1, -1, -2]
+        'Items': ['a', 'b', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'],
+        'Quantities': [2, 2, 1, 3, 2, 1, 2, 1, 4, 3, 2, 1, 3, 2, 2, 4, 1, 2, 3, 1, 4, 2, 3, 1, 2],
+        'Profits': [-2, 1, 4, 1, -1, -2, 3, -1, 2, 0, 1, -3, 2, -1, 4, 0, 1, 2, -1, 3, 2, 1, -3, 2, 0]
     },
     {
         'TID': 'T2',
-        'Items': ['b', 'c'],
-        'Quantities': [1, 5],
-        'Profits': [-1, 1]
+        'Items': ['b', 'c', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'],
+        'Quantities': [1, 5, 2, 3, 1, 4, 2, 3, 1, 2, 3, 2, 4, 1, 3, 2, 1, 3, 2, 4, 1],
+        'Profits': [-1, 1, 2, -3, 1, 2, 0, 4, 2, 1, 3, 2, -1, 2, -2, 3, 1, 0, 2, -3, 2]
     },
     {
         'TID': 'T3',
-        'Items': ['b', 'c', 'd', 'e', 'f'],
-        'Quantities': [2, 1, 3, 2, 1],
-        'Profits': [-1, 1, 4, 1, -1]
+        'Items': ['b', 'c', 'd', 'e', 'f', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v'],
+        'Quantities': [2, 1, 3, 2, 1, 2, 4, 1, 2, 3, 2, 3, 4, 2, 1, 3, 2, 2, 1, 3],
+        'Profits': [-1, 1, 4, 1, -1, 2, -3, 0, 1, 2, 3, -2, 1, -1, 4, 2, 3, 1, 0, -3]
     },
     {
         'TID': 'T4',
-        'Items': ['c', 'd', 'e'],
-        'Quantities': [2, 1, 3],
-        'Profits': [1, 4, 1]
+        'Items': ['c', 'd', 'e', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x'],
+        'Quantities': [2, 1, 3, 4, 2, 1, 2, 3, 2, 1, 3, 4, 2, 3, 1, 4, 2, 3, 1, 2],
+        'Profits': [1, 4, 1, -2, 2, 3, -1, 2, 4, 1, 2, -3, 2, 1, 4, -2, 3, 1, -1, 2]
     },
     {
         'TID': 'T5',
-        'Items': ['a', 'f'],
-        'Quantities': [2, 3],
-        'Profits': [2, -1]
+        'Items': ['a', 'f', 'g', 'h', 'i', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x'],
+        'Quantities': [2, 3, 1, 3, 2, 4, 1, 3, 2, 1, 2, 3, 4, 2, 3, 1, 2, 4, 1, 2],
+        'Profits': [2, -1, -2, 1, -3, 4, 0, 2, 3, -1, 2, -2, 1, 3, 2, -3, 1, 2, 3, 1]
     },
     {
         'TID': 'T6',
-        'Items': ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
-        'Quantities': [2, 1, 4, 2, 1, 3, 1],
-        'Profits': [1, 1, 1, 4, 1, -1, -2]
+        'Items': ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's'],
+        'Quantities': [2, 1, 4, 2, 1, 3, 1, 2, 1, 2, 3, 4, 2, 1, 3, 1, 4, 2, 1],
+        'Profits': [1, 1, 1, 4, 1, -1, -2, 2, -3, 0, 1, 2, 4, -2, 3, 2, 1, -1, 2]
     },
     {
         'TID': 'T7',
-        'Items': ['b', 'c', 'e'],
-        'Quantities': [3, 2, 2],
-        'Profits': [1, 2, 2]
+        'Items': ['b', 'c', 'e', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v'],
+        'Quantities': [3, 2, 2, 1, 3, 2, 4, 3, 2, 1, 2, 4, 3, 1, 2, 3, 1, 2, 3],
+        'Profits': [1, 2, 2, 0, -1, 3, 2, -1, 2, 4, 1, 3, 2, 2, 1, 3, 0, 1, -2]
+    },
+    {
+        'TID': 'T8',
+        'Items': ['a', 'b', 'c', 'd', 'e', 'h', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't'],
+        'Quantities': [2, 3, 1, 2, 4, 1, 2, 3, 4, 2, 3, 1, 4, 3, 1, 3, 2],
+        'Profits': [1, -1, 2, 0, 1, 3, -2, 2, 1, 4, 2, 3, -1, 2, 1, 0, -2]
+    },
+    {
+        'TID': 'T9',
+        'Items': ['d', 'e', 'f', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u'],
+        'Quantities': [4, 1, 3, 2, 4, 1, 3, 2, 4, 1, 2, 3, 1, 4, 2, 3, 1],
+        'Profits': [2, 3, -1, 2, -3, 1, 4, 2, 1, 2, 3, 1, 2, -1, 3, 2, 0]
+    },
+    {
+        'TID': 'T10',
+        'Items': ['a', 'c', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r'],
+        'Quantities': [1, 2, 3, 4, 2, 3, 2, 3, 2, 1, 3, 4, 1, 2, 3, 2],
+        'Profits': [2, 1, 4, -2, 3, 1, -3, 2, 1, -1, 2, 3, -2, 4, 2, 1]
     }
 ]
+<<<<<<< HEAD
+
+
+import time
+
+# Assuming the previous code with the brute_force_topk function and data D is already defined
+
+# Set the minimum utility threshold
+minU = 200
+K = 2
+
+# Record the start time
+start_time = time.time()
+
+# Call the brute_force_topk function
+top_k_combinations = EMHUN(D, minU , K)
+
+# Record the end time
+end_time = time.time()
+
+# Calculate the running time
+running_time = end_time - start_time
+
+# Print the top K combinations
+for i, (combination, utility) in enumerate(top_k_combinations):
+    print(f"Top {i+1} utilities: {combination} - Utility: {utility}")
+
+# Print the running time
+print(f"Running time: {running_time:.6f} seconds")
+=======
 EMHUN(D, 25, 2)
+>>>>>>> 4a543d0117663c7fc211f0c56f87ca89326f850d
