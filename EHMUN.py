@@ -1,19 +1,15 @@
-def EMHUN(D, minU):
+def EMHUN(D, minU, k):
     """
-    This function executes the Enhanced Mining High Utility Itemsets with Negative item values (EMHUN) algorithm.
-    
+    Discover high-utility itemsets (HUIs) in a database of transactions with quantitative items.
+
     Parameters:
-    D (list of dict): A list of transactions where each transaction is represented as a dictionary 
-                      containing 'TID', 'Items', 'Quantities', and 'Profits'.
-    minU (float): The minimum utility threshold.
-    
-    The function identifies and prints high utility itemsets by partitioning items into sets based 
-    on their profit values, calculating utilities and remaining utilities, creating new databases 
-    based on itemsets, and performing recursive searches. It includes both positive and negative 
-    profit values in its calculations to discover itemsets that meet or exceed a specified utility 
-    threshold.
+    D (list of dict): A list of transactions where each transaction is represented as a dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+    minU (int): The minimum utility threshold for an itemset to be considered as a HUI.
+    k (int): The number of HUIs to return.
+
+    Returns:
+    None: The function prints the k HUIs with the highest utility.
     """
-    
     X = ""
 
     def partion_items(D):
@@ -68,6 +64,7 @@ def EMHUN(D, minU):
                 u(X, transaction=transaction) 
                 for transaction in D if all(item in transaction['Items'] for item in X)
             )
+            
         return 0
         
                 
@@ -250,41 +247,10 @@ def EMHUN(D, minU):
         Returns:
         list of dict: The sorted database.
         """
+        
         ordered_map = {item: i for i, item in enumerate(items)}
         return sorted(D, key = lambda x: (ordered_map.get(x['Items'][-1]), len(x['Items'])), reverse=True)
-                
-    def print_transactions(D):
-        """
-        Prints out the transactions in the database D in a tabular format.
 
-        Each transaction is printed on a single line, with the columns:
-            - TID: the transaction ID
-            - Items: the items in the transaction
-            - Quantities: the quantities of the items in the transaction
-            - Profits: the profits of the items in the transaction
-            - Quantities * Profits: the products of the quantities and profits of the items in the transaction
-
-        The columns are aligned to the left and padded with spaces to ensure that they are at least a certain width.
-
-        :param D: the database of transactions
-        :type D: list of dict
-        """
-        print(f"{'TID':<10} {'Items':<30} {'Quantities':<25} {'Profits':<30} {'Quantities * Profits':<35}")
-        
-        # In từng giao dịch
-        for transaction in D:
-            tid = transaction['TID']
-            items = ", ".join(transaction['Items'])  # Chuyển danh sách Items thành chuỗi
-            quantities = ", ".join(map(str, transaction['Quantities']))  # Chuyển danh sách Quantities thành chuỗi
-            profits = ", ".join(map(str, transaction['Profits']))  # Chuyển danh sách Profits thành chuỗi
-            
-            # Tính tích của Quantities và Profits
-            quantities_times_profits = [q * p for q, p in zip(transaction['Quantities'], transaction['Profits'])]
-            quantities_times_profits_str = ", ".join(map(str, quantities_times_profits))  # Chuyển tích thành chuỗi
-            
-            print(f"{tid:<10} {items:<30} {quantities:<25} {profits:<30} {quantities_times_profits_str:<35}")
-        print()
-        
     def create_new_database(D, X):
         """
         Create a new database Dx from D by including only the items that come after X in each transaction of D.
@@ -308,9 +274,8 @@ def EMHUN(D, minU):
                         'Profits': transaction['Profits'][index_x:]
                     })
         return Dx
-            
-
-    def search(eta, X, Dx, primary_items, secondary_items, minU):
+                
+    def search(eta, X, Dx, primary_items, secondary_items, minU, countK, k):      
         """
         Perform a recursive search to identify itemsets with utility greater than or equal to a minimum threshold.
 
@@ -324,20 +289,27 @@ def EMHUN(D, minU):
         primary_items (list): A list of primary items to consider for expanding the current itemset.
         secondary_items (list): A list of secondary items for utility calculations.
         minU (float): The minimum utility threshold for an itemset to be considered.
+        countK (int): The current count of high utility itemsets found.
+        k (int): The desired number of high utility itemsets to find.
 
         Returns:
         None: The function prints itemsets that meet or exceed the minimum utility threshold.
-        """
+        """        
         for i in primary_items:
             B = set(X) | {i}
             uB = u(B, D=Dx)              
-              
+
             Db = create_new_database(Dx, i)    
             
             if (uB >= minU):
                 print(B, "= ", uB)
+                countK += 1
+                
+            if countK == k:
+                return 
+            
             if (uB > minU):
-                searchN(eta, B, Db, minU)
+                searchN(eta, B, Dx, minU)
                 
             UA_RLU = create_RLU_UA(Dx, secondary_items[secondary_items.index(i) + 1:], B)
             UA_RSU = create_RSU_UA(Dx, secondary_items[secondary_items.index(i) + 1:], B)
@@ -347,7 +319,7 @@ def EMHUN(D, minU):
             
             search(eta, B, Dx, primary_B, secondary_B, minU)
             
-    def searchN(eta, X, Dx, minU):
+    def searchN(eta, X, Dx, minU, countK, k):
         """
         Perform a recursive search to identify itemsets with utility greater than or equal to a minimum threshold.
 
@@ -359,24 +331,29 @@ def EMHUN(D, minU):
         X (set or list): The current itemset being evaluated.
         Dx (list of dict): The current database of transactions after filtering items.
         minU (float): The minimum utility threshold for an itemset to be considered.
+        countK (int): The current count of high utility itemsets found.
+        k (int): The desired number of high utility itemsets to find.
 
         Returns:
         None: The function prints itemsets that meet or exceed the minimum utility threshold.
-        """
+        """        
         for i in eta:
             B = set(X) | {i}
             uB = u(B, D=Dx)
-            
+
             Db = create_new_database(Dx, B)
-            
+
             if (uB >= minU):
-                print(B)
+                print(B, "= ", uB)
+                countK += 1
+                
+            if countK == k:
+                return 
             
             UA_RSU = create_RSU_UA(Db, eta[eta.index(i) + 1:], B)
-            
             primary_B = [z for z in eta if z in UA_RSU and UA_RSU[z] >= minU]
             
-            searchN(primary_B, B, Db, minU)
+            searchN(primary_B, B, Dx, minU, countK, k)
 
     #Step 2, 3, 4
     rho, delta, eta = partion_items(D)
@@ -401,7 +378,7 @@ def EMHUN(D, minU):
     primary_items = [i for i in secondary_items if UA_SU[i] >= minU]
     
     #Step 13
-    print(search(eta_sorted, X, D, primary_items, secondary_items, minU))
+    print(search(eta_sorted, X, D, primary_items, secondary_items, minU, [0], k))
     
     
 D = [
@@ -448,6 +425,4 @@ D = [
         'Profits': [1, 2, 2]
     }
 ]
-EMHUN(D, 25)
-        
-
+EMHUN(D, 25, 2)
