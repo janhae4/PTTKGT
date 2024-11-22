@@ -357,7 +357,7 @@ D = [
 ]
 
 
-Result = EHMIN(D, 0.356, 20)
+Result = EHMIN(D, 0.356,19)
 print(min_util)
 for r in Result:
       print(r)  
