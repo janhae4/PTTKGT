@@ -1,6 +1,8 @@
-def EHMIN(Db, rate, k):
+def EHMIN(Db, min_util, k):
     def EU(iX, Tk=None):
         if Tk:
+            if (iX not in Tk['Items']):
+                return 0
             index = Tk['Items'].index(iX)
             return Tk['Profits'][index]
         else:   
@@ -28,8 +30,6 @@ def EHMIN(Db, rate, k):
         
     def PU(X, Tk=None):
         if Tk:
-            for ix in X:
-                print(ix, IU(ix, Tk), EU(ix, Tk))
             return sum (
                 IU(ix, Tk) * EU(ix, Tk)
                 for ix in X 
@@ -42,13 +42,13 @@ def EHMIN(Db, rate, k):
                 if all(ix in Tk['Items'] for ix in X)
             )
     
-    def get_sorted_key(x, positive, hybrid, negative):
+    def get_sorted_key(x, positive, hybrid):
         if x in positive:
-            return (-1, RTWU(x))
+            return -1
         elif x in hybrid:
-            return (0, RTWU(x))
+            return 0
         else:
-            return (1, RTWU(x))
+            return 1
         
 
     def PTU(Tk):
@@ -58,19 +58,20 @@ def EHMIN(Db, rate, k):
             if EU(ix, Tk) > 0
         )
 
-    def PTWU(X):
-        return sum (
-            PTU(Tk)
-            for Tk in Db
-            if all(ix in Tk['Items'] for ix in X)
-        )
+    def PTWU(X, cache=None):
+        if not cache:
+            return sum (
+                PTU(Tk)
+                for Tk in Db
+                if all(ix in Tk['Items'] for ix in X)
+            )
 
-    def get_sort_key(x, items):
-        eu_value = EU(x)
-        if (eu_value > 0):
-            return (-1, PTWU(x))
         else:
-            return (1, items[x]["Supp"], -PTWU(x))
+            return sum (
+                Tk['PTWU']
+                for Tk in cache.values()
+                if all(ix in Tk['Items'] for ix in X)
+            )
         
     def sorted_transactions(items):
         map = {item: index for index, item in enumerate(items)}
@@ -80,23 +81,12 @@ def EHMIN(Db, rate, k):
             Tk['Items'], Tk['Quantities'], Tk['Profits'] = zip(*sorted_item)
         return Db     
     
-    def sorted_database(items):
-        map = {item: index for index, item in enumerate(items)}
-        return sorted(Db, key = lambda x: (map.get(x['Items'][-1]), len(x['Items'])), reverse=True)
-
-    def minUtil(delta):
-        return delta * sum (
-            PTU(Tk)
-            for Tk in D
-        ) 
  
-    def RTWU(X):
+    def RTWU(Tk):
         return sum (
             Tk['Profits'][index] * Tk['Quantities'][index]
-            for Tk in Db
             for index, ix in enumerate(Tk['Items'])
-            if all(x in Tk['Items'] for x in X)
-            and Tk['Profits'][index] > 0
+            if Tk['Profits'][index] > 0
         )
         
     def PRU(X, Tk=None):
@@ -105,7 +95,7 @@ def EHMIN(Db, rate, k):
         
         if Tk:
             transaction = Tk['Items']
-            index = transaction.index(X[-1]) + 1
+            index = transaction.index(X) + 1
             RP = transaction[index :]
             return sum (
                 U(iRP, Tk)
@@ -133,85 +123,74 @@ def EHMIN(Db, rate, k):
                     positive.add(ix)
                 else:
                     negative.add(ix)
-                    
+                
                 if ix in items: 
                     items[ix]["Supp"] += 1
+                    items[ix]["RTWU"] += RTWU(Tk)
                 else:
                     items[ix] = {
-                        "PTWU": PTWU(ix),
-                        "RTWU": RTWU(ix),
+                        "RTWU": RTWU(Tk),
                         "Supp": 1
                 }
-        hybrid = positive.intersection(negative)
-        positive.difference_update(hybrid)
-        negative.difference_update(hybrid)
-        items_sorted = sorted(items, key = lambda x: get_sorted_key(x, positive, hybrid, negative))
-        print(items)
+        hybrid = positive & negative
+        positive -= hybrid
+        negative -= hybrid
+        items_sorted = sorted(items, key = lambda x: (get_sorted_key(x, positive, hybrid), items[x]['RTWU'], items[x]['Supp']))
         return items_sorted
     
     def second_scan(Db, items):
-        min_util = minUtil(rate)
         Db = sorted_transactions(items)
 
-        UL = []
+        UL_dict = {}
+        EUCS_cache = {}
         for Tk in Db:
-            PTU_k = 0
-            print("PTWU(a): ", PTWU("a"))
-            for ix in Tk['Items']:
-                if PTWU(ix) > min_util:
-                    PTU_k += PU(ix, Tk)
-            print(f"TOTAL={PTU_k}")
             tmp = {}
-            newPTWU = 0
+
             for ix in Tk['Items']:
                 tmp[ix] = U(ix, Tk)
-                if (PTWU(ix) > min_util):
-                    newPTWU += PTWU(ix) + PTU_k 
-                    
-            reverse_dict = dict(reversed(tmp.items()))
-            for idx in reverse_dict:
-                existing_entry = next((item for item in UL if item['Item'] == idx), None)
-                if existing_entry:
-                    existing_entry["Utility"] += reverse_dict[idx]
-                    existing_entry["PRU"] += PRU(idx, Tk)
+                        
+            for idx, utility in tmp.items():
+                pru = PRU(idx, Tk)
+                if idx in UL_dict:
+                    existing_entry = UL_dict[idx]
                     existing_entry["TI"].append({
                         "TID": Tk['TID'],
-                        "Utility": reverse_dict[idx],
-                        "PRU": PRU(idx, Tk)
+                        "Utility": utility,
+                        "PRU": pru
                     })
+                    existing_entry["Utility"] += utility 
+                    existing_entry["PRU"] += pru
                 else:
-                    UL.append({
-                            'Item': idx,
-                            "Utility": U(idx, Tk),
-                            "PRU": PRU(idx, Tk),
-                            "TI": [
-                                {
+                    UL_dict[idx] = ({
+                        "Item": idx,
+                        "Utility": utility,
+                        "PRU": pru,
+                        "TI": [
+                            {
                                 "TID": Tk['TID'],
-                                "Utility": reverse_dict[idx],
-                                "PRU": PRU(idx, Tk)
-                                }
-                            ] 
+                                "Utility": utility,
+                                "PRU": pru
+                            }
+                        ]
                     })
-
-        n = len(items)
-
+            
+            EUCS_cache[Tk['TID']] = {
+                "Items": Tk['Items'],
+                "PTWU": RTWU(Tk)
+            }
+            
+        print("UL calculated successfully...")
+        n = len(items)        
+        
         EUCS = [[0 for _ in range(n)] for _ in range(n)]
         for i in range(n):
             for j in range(i + 1, n):
-                item_set = {items_sorted[i], items_sorted[j]}
-                EUCS[i][j] = PTWU(item_set) 
-
-        print(items_sorted)
-        print()
-        print("\t", "\t".join(items_sorted))
-        for i in range(len(UL)):
-            print(items_sorted[i], end="\t")
-            for j in range(len(UL)):
-                print(EUCS[i][j], end="\t")
-            print()
-        print()
-
-        UL = sorted(UL, key = lambda x: items_sorted.index(x['Item']))
+                item_set = {items[i], items[j]}
+                EUCS[i][j] = PTWU(item_set, EUCS_cache)      
+        print("EUCS calculated successfully...")
+        
+        UL = list(UL_dict.values())
+        UL = sorted(UL, key = lambda x: items.index(x['Item']))
         return EUCS, UL
 
     def EHMIN_Mine(P={}, Ul=[], pref=[]):   
@@ -228,7 +207,7 @@ def EHMIN(Db, rate, k):
             uk_key = uk['Item']     
 
             if uk["Utility"] >= min_util:
-                res = list(pref) + [uk_key]
+                res = pref + [uk_key]
                 HUP.append([res, uk["Utility"]])
                 
             if uk["Utility"] + uk["PRU"] >= min_util:
@@ -239,7 +218,7 @@ def EHMIN(Db, rate, k):
                     
                     index_i = items_sorted.index(uk_key[0])
                     index_j = items_sorted.index(ul_key[0])
-                    print(uk_key, ul_key, index_i, index_j, EUCS[index_i][index_j])
+
                     if EUCS[index_i][index_j] >= min_util:
                         C = EHMIN_Combine(uk, ul, pfutils)
                         if C is not None:
@@ -301,64 +280,77 @@ def EHMIN(Db, rate, k):
             return None
         return C
 
-    global min_util
     global HUP
-    min_util = minUtil(rate)
     items = first_scan(Db)
     EUCS, UL = second_scan(Db, items)
     HUP = []
-    EHMIN_Mine({}, UL, ())
-
+    EHMIN_Mine({}, UL, [])
+    # HUP = sorted(HUP, key = lambda x: x[1], reverse=True)
     return HUP[:min(k, len(HUP))]
 
-D = [
-    {
-        'TID': 'T1',
-        'Items': ['a', 'b', 'd', 'e', 'f', 'g'],
-        'Quantities': [2, 2, 1, 3, 2, 1],
-        'Profits': [-2, 1, 4, 1, -1, -2]
-    },
-    {
-        'TID': 'T2',
-        'Items': ['b', 'c'],
-        'Quantities': [1, 5],
-        'Profits': [-1, 1]
-    },
-    {
-        'TID': 'T3',
-        'Items': ['b', 'c', 'd', 'e', 'f'],
-        'Quantities': [2, 1, 3, 2, 1],
-        'Profits': [-1, 1, 4, 1, -1]
-    },
-    {
-        'TID': 'T4',
-        'Items': ['c', 'd', 'e'],
-        'Quantities': [2, 1, 3],
-        'Profits': [1, 4, 1]
-    },
-    {
-        'TID': 'T5',
-        'Items': ['a', 'f'],
-        'Quantities': [2, 3],
-        'Profits': [2, -1]
-    },
-    {
-        'TID': 'T6',
-        'Items': ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
-        'Quantities': [2, 1, 4, 2, 1, 3, 1],
-        'Profits': [1, 1, 1, 4, 1, -1, -2]
-    },
-    {
-        'TID': 'T7',
-        'Items': ['b', 'c', 'e'],
-        'Quantities': [3, 2, 2],
-        'Profits': [1, 2, 2]
-    }
-]
+D = []
+i = 0
+with(open("mushroom.txt", "r")) as f:
+    for line in f:
+        i += 1
+        line = line.strip()
+        data_split = line.split(":")
+        items = data_split[0].split(" ")
+        quantities = [1 for _ in range(len(items))]
+        utilities = list(map(int, data_split[2].split(" ")))
+        D.append({
+            "TID": i,
+            "Items": items,
+            "Quantities": quantities,
+            "Profits": utilities
+          })
 
+# D = [
+#     {
+#         'TID': 'T1',
+#         'Items': ['a', 'b', 'd', 'e', 'f', 'g'],
+#         'Quantities': [2, 2, 1, 3, 2, 1],
+#         'Profits': [-2, 1, 4, 1, -1, -2]
+#     },
+#     {
+#         'TID': 'T2',
+#         'Items': ['b', 'c'],
+#         'Quantities': [1, 5],
+#         'Profits': [-1, 1]
+#     },
+#     {
+#         'TID': 'T3',
+#         'Items': ['b', 'c', 'd', 'e', 'f'],
+#         'Quantities': [2, 1, 3, 2, 1],
+#         'Profits': [-1, 1, 4, 1, -1]
+#     },
+#     {
+#         'TID': 'T4',
+#         'Items': ['c', 'd', 'e'],
+#         'Quantities': [2, 1, 3],
+#         'Profits': [1, 4, 1]
+#     },
+#     {
+#         'TID': 'T5',
+#         'Items': ['a', 'f'],
+#         'Quantities': [2, 3],
+#         'Profits': [2, -1]
+#     },
+#     {
+#         'TID': 'T6',
+#         'Items': ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+#         'Quantities': [2, 1, 4, 2, 1, 3, 1],
+#         'Profits': [1, 1, 1, 4, 1, -1, -2]
+#     },
+#     {
+#         'TID': 'T7',
+#         'Items': ['b', 'c', 'e'],
+#         'Quantities': [3, 2, 2],
+#         'Profits': [1, 2, 2]
+#     }
+# ]
 
-Result = EHMIN(D, 0.356,19)
-print(min_util)
+Result = EHMIN(D, 25, 100)
 for r in Result:
       print(r)  
             
