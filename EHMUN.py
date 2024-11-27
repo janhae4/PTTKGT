@@ -10,7 +10,6 @@ def EMHUN(D, minU, k):
     Returns:
     None: The function prints the k HUIs with the highest utility.
     """
-    X = ""
 
     def partion_items(D):
         """
@@ -99,7 +98,7 @@ def EMHUN(D, minU, k):
         Returns:
         float: The remaining lower utility of X with respect to z in D.
         """
-        items = set(X) | set(z)
+        items = list(X) + list(z)
         return sum(
             u(X, transaction) + rru(X, transaction)
             for transaction in D if all(item in transaction["Items"] for item in items)
@@ -132,7 +131,7 @@ def EMHUN(D, minU, k):
         Returns:
         float: The total utility of X in D.
         """
-        items = set(X)
+        items = list(X)
         return sum(
             rtu(transaction)
             for transaction in D if all(item in transaction["Items"] for item in items)
@@ -151,7 +150,7 @@ def EMHUN(D, minU, k):
         Returns:
         float: The remaining upper utility of X with respect to z in D.
         """
-        items = set(X) | set(z)
+        items = list(X) + list(z)
         return sum(
             u(X, transaction) + u(z, transaction) + rru(z, transaction)
             for transaction in D if all(item in transaction["Items"] for item in items)
@@ -265,6 +264,7 @@ def EMHUN(D, minU, k):
         Dx = []
         for transaction in D:
             if X in transaction['Items']:
+                print(X, transaction)
                 index_x = transaction['Items'].index(X[-1]) + 1
                 if index_x < len(transaction['Items']):
                     Dx.append({
@@ -294,12 +294,11 @@ def EMHUN(D, minU, k):
 
         Returns:
         None: The function prints itemsets that meet or exceed the minimum utility threshold.
-        """        
+        """  
+        
         for i in primary_items:
-            B = set(X) | {i}
-            uB = u(B, D=Dx)              
-
-            Db = create_new_database(Dx, i)    
+            B = X + [i]
+            uB = u(B, D=Dx)  
             
             if (uB >= minU):
                 print(B, "= ", uB)
@@ -336,11 +335,10 @@ def EMHUN(D, minU, k):
 
         Returns:
         None: The function prints itemsets that meet or exceed the minimum utility threshold.
-        """        
-        for i in eta:
-            B = set(X) | {i}
+        """ 
+        for i in eta:      
+            B = X + [i]
             uB = u(B, D=Dx)
-
             Db = create_new_database(Dx, B)
 
             if (uB >= minU):
@@ -355,11 +353,13 @@ def EMHUN(D, minU, k):
             
             searchN(primary_B, B, Dx, minU, countK, k)
 
+    X = []
     #Step 2, 3, 4
     rho, delta, eta = partion_items(D)
     
     #Step 5
     UA = create_RLU_UA(D)
+    print(UA)
     
     #Step 6, 7
     secondary_items = sorted(UA, key=lambda x: (0 if x in rho else 1 if x in delta else 2, UA[x]))
@@ -376,53 +376,72 @@ def EMHUN(D, minU, k):
     
     #Step 12
     primary_items = [i for i in secondary_items if UA_SU[i] >= minU]
-    
+    print("PRIMARY_ITEMS: ", primary_items)
     #Step 13
     print(search(eta_sorted, X, D, primary_items, secondary_items, minU, 0, k))
     
     
-D = [
-    {
-        'TID': 'T1',
-        'Items': ['a', 'b', 'd', 'e', 'f', 'g'],
-        'Quantities': [2, 2, 1, 3, 2, 1],
-        'Profits': [-2, 1, 4, 1, -1, -2]
-    },
-    {
-        'TID': 'T2',
-        'Items': ['b', 'c'],
-        'Quantities': [1, 5],
-        'Profits': [-1, 1]
-    },
-    {
-        'TID': 'T3',
-        'Items': ['b', 'c', 'd', 'e', 'f'],
-        'Quantities': [2, 1, 3, 2, 1],
-        'Profits': [-1, 1, 4, 1, -1]
-    },
-    {
-        'TID': 'T4',
-        'Items': ['c', 'd', 'e'],
-        'Quantities': [2, 1, 3],
-        'Profits': [1, 4, 1]
-    },
-    {
-        'TID': 'T5',
-        'Items': ['a', 'f'],
-        'Quantities': [2, 3],
-        'Profits': [2, -1]
-    },
-    {
-        'TID': 'T6',
-        'Items': ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
-        'Quantities': [2, 1, 4, 2, 1, 3, 1],
-        'Profits': [1, 1, 1, 4, 1, -1, -2]
-    },
-    {
-        'TID': 'T7',
-        'Items': ['b', 'c', 'e'],
-        'Quantities': [3, 2, 2],
-        'Profits': [1, 2, 2]
-    }
-]
-EMHUN(D, 25, 10)
+# D = [
+#     {
+#         'TID': 'T1',
+#         'Items': ['a', 'b', 'd', 'e', 'f', 'g'],
+#         'Quantities': [2, 2, 1, 3, 2, 1],
+#         'Profits': [-2, 1, 4, 1, -1, -2]
+#     },
+#     {
+#         'TID': 'T2',
+#         'Items': ['b', 'c'],
+#         'Quantities': [1, 5],
+#         'Profits': [-1, 1]
+#     },
+#     {
+#         'TID': 'T3',
+#         'Items': ['b', 'c', 'd', 'e', 'f'],
+#         'Quantities': [2, 1, 3, 2, 1],
+#         'Profits': [-1, 1, 4, 1, -1]
+#     },
+#     {
+#         'TID': 'T4',
+#         'Items': ['c', 'd', 'e'],
+#         'Quantities': [2, 1, 3],
+#         'Profits': [1, 4, 1]
+#     },
+#     {
+#         'TID': 'T5',
+#         'Items': ['a', 'f'],
+#         'Quantities': [2, 3],
+#         'Profits': [2, -1]
+#     },
+#     {
+#         'TID': 'T6',
+#         'Items': ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+#         'Quantities': [2, 1, 4, 2, 1, 3, 1],
+#         'Profits': [1, 1, 1, 4, 1, -1, -2]
+#     },
+#     {
+#         'TID': 'T7',
+#         'Items': ['b', 'c', 'e'],
+#         'Quantities': [3, 2, 2],
+#         'Profits': [1, 2, 2]
+#     }
+# ]
+D = []
+i = 0
+with(open("mushroom.txt", "r")) as f:
+    for line in f:
+        i += 1
+        line = line.strip()
+        data_split = line.split(":")
+        items = data_split[0].split(" ")
+        quantities = [1 for _ in range(len(items))]
+        utilities = list(map(int, data_split[2].split(" ")))
+        D.append({
+            "TID": i,
+            "Items": items,
+            "Quantities": quantities,
+            "Profits": utilities
+          })
+    
+        
+
+EMHUN(D, 25, 5)
