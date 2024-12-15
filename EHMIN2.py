@@ -581,7 +581,7 @@ with(open("dataset.txt", "r")) as f:
 #     }
 # ]
 
-res = EHMIN(D, 100, 10)
+res = EHMIN(D, 5e8, 10)
 print()
 for r in res:
     print(r)
