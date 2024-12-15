@@ -104,23 +104,24 @@ def PTU(Tk):
       for ix in Tk['Items']
       if EU(ix, Tk) > 0
   )
+  
 
-def PTWU(X, cache):
-  """
-  Calculate the positive total utility of a set of items in a database.
+def PTWU(X, cache, index):
+    """
+    Optimized version of PTWU using precomputed index for item lookups.
 
-  Parameters:
-  X: A list of items.
-  cache: A dictionary containing the positive total utility of each transaction in Db.
+    Parameters:
+    X (list): A list of items.
+    cache (dict): A dictionary containing the positive total utility (PTWU) of each transaction.
+    index (dict): A precomputed index mapping each item to transaction IDs.
 
-  Returns:
-  The positive total utility of X in Db.
-  """
-  return sum (
-      Tk['PTWU']
-      for Tk in cache.values()
-      if all(ix in Tk['Items'] for ix in X)
-        )
+    Returns:
+    The positive total utility of X in the database.
+    """
+    relevant_tids = set.intersection(*(index[ix] for ix in X if ix in index))
+    return sum(
+        cache[tid]['PTWU'] 
+        for tid in relevant_tids)
 
 def sorted_transactions(D, items):
   """
@@ -245,75 +246,136 @@ def first_scan(Db):
   items_sorted = sorted(items, key = lambda x: (0 if x in positive else 1 if x in hybrid else 2, items[x]['RTWU'], -items[x]['Supp']))
   return items_sorted
 
+def update_ul_dict(UL_dict, tmp, Tk):
+    """
+    Update the utility list (UL_dict) with the utilities and PRU of items in the transaction.
+
+    Parameters:
+    UL_dict (dict): The utility list dictionary.
+    tmp (dict): A dictionary of utilities for items in the transaction.
+    Tk (dict): The current transaction.
+
+    Returns:
+    None: Updates the UL_dict in place.
+    """
+    for idx, utility in tmp.items():
+        pru = PRU([idx], Tk)
+        if idx in UL_dict:
+            existing_entry = UL_dict[idx]
+            existing_entry["TI"].append({
+                "TID": Tk['TID'],
+                "Utility": utility,
+                "PRU": pru
+            })
+            existing_entry["Utility"] += utility
+            existing_entry["PRU"] += pru
+        else:
+            UL_dict[idx] = {
+                "Item": idx,
+                "Utility": utility,
+                "PRU": pru,
+                "TI": [{
+                    "TID": Tk['TID'],
+                    "Utility": utility,
+                    "PRU": pru
+                }]
+            }
+
+
+def update_eucs_cache(EUCS_cache, Tk):
+    """
+    Update the EUCS cache with the PTWU of the current transaction.
+
+    Parameters:
+    EUCS_cache (dict): The EUCS cache dictionary.
+    Tk (dict): The current transaction.
+
+    Returns:
+    None: Updates the EUCS_cache in place.
+    """
+    EUCS_cache[Tk['TID']] = {
+        "Items": Tk['Items'],
+        "PTWU": RTWU(Tk)
+    }
+
+
+def update_index(index, Tk):
+    """
+    Update the index with the items in the current transaction.
+
+    Parameters:
+    index (dict): The index mapping items to transaction IDs.
+    Tk (dict): The current transaction.
+
+    Returns:
+    None: Updates the index in place.
+    """
+    for item in Tk['Items']:
+        if item not in index:
+            index[item] = set()
+        index[item].add(Tk['TID'])
+
+
+def calculate_eucs_matrix(items, index, EUCS_cache):
+    """
+    Calculate the EUCS matrix based on the given index and EUCS cache.
+
+    Parameters:
+    items (list): The list of sorted items.
+    index (dict): The index mapping items to transaction IDs.
+    EUCS_cache (dict): The EUCS cache dictionary.
+
+    Returns:
+    list: The EUCS matrix.
+    """
+    n = len(items)
+    EUCS = [[0 for _ in range(n)] for _ in range(n)]
+    for i in range(n):
+        print(f"Processing item {items[i]} at index {i}...")
+        for j in range(i + 1, n):
+            relevant_tids = set.intersection(*(index[ix] for ix in [items[i], items[j]] if ix in index))
+            EUCS[i][j] = sum(EUCS_cache[tid]['PTWU'] for tid in relevant_tids)
+    return EUCS
+
+
 def second_scan(Db, items):
-  """
-  Perform the second scan of the database to calculate the
-  utility list (UL) and the remaining lower utility (RLU) matrix (EUCS).
+    """
+    Perform the second scan of the database to calculate the
+    utility list (UL) and the remaining lower utility (RLU) matrix (EUCS).
 
-  Parameters:
-  Db (list of dict): A list of transactions where each transaction
-  is represented as a dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
-  items (list): A list of items sorted by their classification
-  (positive, hybrid, negative), RTWU, and support.
+    Parameters:
+    Db (list of dict): A list of transactions where each transaction
+    is represented as a dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+    items (list): A list of items sorted by their classification
+    (positive, hybrid, negative), RTWU, and support.
 
-  Returns:
-  A tuple containing the EUCS matrix and the UL list.
-  """
-  global EUCS
+    Returns:
+    A tuple containing the EUCS matrix and the UL list.
+    """
+    global EUCS
+    Db = sorted_transactions(Db, items)
 
-  Db = sorted_transactions(Db, items)
+    UL_dict = {}
+    EUCS_cache = {}
+    index = {}
 
-  UL_dict = {}
-  EUCS_cache = {}
-  for Tk in Db:
-      tmp = {}
+    for Tk in Db:
+        tmp = {ix: U(ix, Tk) for ix in Tk['Items']}
+        update_ul_dict(UL_dict, tmp, Tk)
+        update_eucs_cache(EUCS_cache, Tk)
+        update_index(index, Tk)
 
-      for ix in Tk['Items']:
-          tmp[ix] = U(ix, Tk)
+    print("UL calculated successfully...")
 
+    # Calculate the EUCS matrix
+    EUCS = calculate_eucs_matrix(items, index, EUCS_cache)
 
-      for idx, utility in tmp.items():
-          pru = PRU([idx], Tk)
-          if idx in UL_dict:
-              existing_entry = UL_dict[idx]
-              existing_entry["TI"].append({
-                  "TID": Tk['TID'],
-                  "Utility": utility,
-                  "PRU": pru
-              })
-              existing_entry["Utility"] += utility
-              existing_entry["PRU"] += pru
-          else:
-              UL_dict[idx] = ({
-                  "Item": idx,
-                  "Utility": utility,
-                  "PRU": pru,
-                  "TI": [
-                      {
-                          "TID": Tk['TID'],
-                          "Utility": utility,
-                          "PRU": pru
-                      }
-                  ]
-              })
+    print("EUCS calculated successfully...")
 
-      EUCS_cache[Tk['TID']] = {
-          "Items": Tk['Items'],
-          "PTWU": RTWU(Tk)
-      }
-  print("UL calculated successfully...")
-  n = len(items)
-  EUCS = [[0 for _ in range(n)] for _ in range(n)]
-  for i in range(n):
-      print(i)
-      for j in range(i + 1, n):
-          item_set = {items[i], items[j]}
-          EUCS[i][j] = PTWU(item_set, EUCS_cache)
-  print("EUCS calculated successfully...")
+    # Sort UL based on the order of items
+    UL = sorted(UL_dict.values(), key=lambda x: items.index(x['Item']))
 
-  UL = list(UL_dict.values())
-  UL = sorted(UL, key = lambda x: items.index(x['Item']))
-  return EUCS, UL
+    return EUCS, UL
 
 
 def EHMIN_Combine(Uk={}, Ul={}, pfutils={}):
@@ -489,13 +551,10 @@ def EHMIN_Mine(P={}, Ul=[], pref=[]):
             index_j = items_sorted.index(ul_key)
             if EUCS[index_i][index_j] < min_util:
                 continue  # Skip itemsets with insufficient utility.
-            if pref==[] and uk_key == '20' and ul_key== '2':
-              print(uk)
-              print(ul)
+            print(pref, ul_key)
             # Step 7: Combine the two itemsets and check if the resulting itemset has sufficient utility.
             C = EHMIN_Combine(uk, ul, pfutils)
-            if pref==[] and uk_key == '20' and ul_key== '2':
-              print("CCC", C)
+
             if C is not None:
                 CL.append(C)  # If valid, add the combined itemset to the candidate list.
 
@@ -521,7 +580,7 @@ def EHMIN(Db, minUtil, k):
 
 D = []
 i = 0
-with(open("dataset.txt", "r")) as f:
+with(open("chess_negative.txt", "r")) as f:
     for line in f:
         i += 1
         line = line.strip()
@@ -580,9 +639,12 @@ with(open("dataset.txt", "r")) as f:
 #         'Profits': [1, 2, 2]
 #     }
 # ]
-
-res = EHMIN(D, 100, 10)
+import time 
+start = time.perf_counter()
+res = EHMIN(D, 100000, 10)
+end = time.perf_counter()
 print()
 for r in res:
     print(r)
+print(end-start)
 
