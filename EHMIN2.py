@@ -639,10 +639,8 @@ with(open("chess_negative.txt", "r")) as f:
 #         'Profits': [1, 2, 2]
 #     }
 # ]
-import time 
-start = time.perf_counter()
-res = EHMIN(D, 100000, 10)
-end = time.perf_counter()
+
+res = EHMIN(D, 100, 10)
 print()
 for r in res:
     print(r)
