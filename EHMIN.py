@@ -1,5 +1,16 @@
 def EHMIN(Db, min_util, k):
-    def EU(iX, Tk=None):
+    def EU(iX, Tk=None, Db=None):
+        """
+        Calculate the utility of a set of items iX in a transaction Tk or a database of transactions Db.
+
+        Parameters:
+        iX (set or list): A set or list of items.
+        Tk (dict): A dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+        Db (list of dict): A list of transactions where each transaction is represented as a dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+        
+        Returns:
+        float: The utility of iX in the transaction or the database of transactions.
+        """
         if Tk:
             if (iX not in Tk['Items']):
                 return 0
@@ -13,9 +24,30 @@ def EHMIN(Db, min_util, k):
             return 0
 
     def IU(iX, Tk):
+        """
+        Calculate the internal utility of a set of items iX in a transaction Tk.
+
+        Parameters:
+        iX (set or list): A set or list of items.
+        Tk (dict): A dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+        
+        Returns:
+        float: The internal utility of iX in the transaction or 0 if iX is not in Tk.
+        """
         return Tk["Quantities"][Tk['Items'].index(iX)] if iX in Tk['Items'] else 0
 
     def U(X, Tk=None):
+        
+        """
+        Calculate the utility of a set of items X in a transaction Tk or a database of transactions Db.
+
+        Parameters:
+        X (set or list): A set or list of items.
+        Tk (dict): A dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+        
+        Returns:
+        float: The utility of X in the transaction or the database of transactions.
+        """
         if Tk:
             return sum (
                 IU(ix, Tk) * EU(ix, Tk) 
@@ -28,7 +60,19 @@ def EHMIN(Db, min_util, k):
                 if all(ix in Tk['Items'] for ix in X)
             )
         
-    def PU(X, Tk=None):
+    def PU(X, Tk=None, Db=None):
+        """
+        Calculate the positive utility of a set of items X in a transaction Tk or a database of transactions Db.
+
+        Parameters:
+        X (set or list): A set or list of items.
+        Tk (dict): A dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+        Db (list of dict): A list of transactions where each transaction is represented as a dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+        
+        Returns:
+        float: The positive utility of X in the transaction or the database of transactions.
+        """
+
         if Tk:
             return sum (
                 IU(ix, Tk) * EU(ix, Tk)
@@ -43,6 +87,7 @@ def EHMIN(Db, min_util, k):
             )
     
     def get_sorted_key(x, positive, hybrid):
+        
         if x in positive:
             return -1
         elif x in hybrid:
@@ -52,14 +97,34 @@ def EHMIN(Db, min_util, k):
         
 
     def PTU(Tk):
+        """
+        Calculate the positive utility of a transaction Tk.
+
+        Parameters:
+        Tk (dict): A dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+        
+        Returns:
+        float: The positive utility of Tk.
+        """
         return sum (
             U(ix, Tk)
             for ix in Tk['Items']
             if EU(ix, Tk) > 0
         )
 
-    def PTWU(X, cache=None):
-        if not cache:
+    def PTWU(X, Db=None, cache=None):
+        """
+        Calculate the positive total utility of a set of items X in a database of transactions Db.
+
+        Parameters:
+        X (set or list): A set or list of items.
+        Db (list of dict): A list of transactions where each transaction is represented as a dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+        cache (dict): A dictionary containing the positive total utility of each transaction in Db.
+
+        Returns:
+        float: The positive total utility of X in Db.
+        """
+        if not cache and Db:
             return sum (
                 PTU(Tk)
                 for Tk in Db
@@ -73,13 +138,22 @@ def EHMIN(Db, min_util, k):
                 if all(ix in Tk['Items'] for ix in X)
             )
         
-    def sorted_transactions(items):
+    def sorted_transactions(items, D):        
+        """
+        Sort the items, profits, and quantities within each transaction in the database D based on a specified order of items.
+
+        Parameters:
+        items (list): A list specifying the desired order of items.
+        D (list of dict): A list of transactions where each transaction is represented as a dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+
+        Returns:
+        list of dict: The modified database with items, profits, and quantities sorted within each transaction according to the specified order.
+        """
         map = {item: index for index, item in enumerate(items)}
         for Tk in D:
             zip_list = list(zip(Tk['Items'], Tk['Quantities'], Tk['Profits']))
             sorted_item = sorted(zip_list, key = lambda x: map.get(x[0], len(items)))
             Tk['Items'], Tk['Quantities'], Tk['Profits'] = zip(*sorted_item)
-        return Db     
     
  
     def RTWU(Tk):
@@ -89,11 +163,23 @@ def EHMIN(Db, min_util, k):
             if Tk['Profits'][index] > 0
         )
         
-    def PRU(X, Tk=None):
+    def PRU(X, Tk=None, D=None):
+        
+        """
+        Calculate the positive utility of a set of items X in a transaction Tk or a database of transactions Db.
+
+        Parameters:
+        X (set or list): A set or list of items.
+        Tk (dict): A dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+        Db (list of dict): A list of transactions where each transaction is represented as a dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+        
+        Returns:
+        float: The positive utility of X in the transaction or the database of transactions.
+        """
         if X == "":
             return 0 
         
-        if Tk:
+        if Tk and not D:
             transaction = Tk['Items']
             index = transaction.index(X) + 1
             RP = transaction[index :]
@@ -110,6 +196,18 @@ def EHMIN(Db, min_util, k):
             )
             
     def first_scan(Db):
+        """
+        Perform the first scan of the database to classify items and calculate their support and remaining total utility (RTWU).
+
+        Parameters:
+        Db (list of dict): A list of transactions where each transaction is represented as a dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+
+        Global Variables:
+        items_sorted: A list of items sorted by their classification (positive, hybrid, negative), RTWU, and support.
+
+        Returns:
+        list: The sorted list of items based on their classification, RTWU, and support.
+        """
         global items_sorted
         items = {}
         
@@ -139,6 +237,19 @@ def EHMIN(Db, min_util, k):
         return items_sorted
     
     def second_scan(Db, items):
+        """
+        Perform the second scan of the database to calculate the utility list (UL) and the remaining lower utility (RLU) matrix (EUCS).
+
+        Parameters:
+        Db (list of dict): A list of transactions where each transaction is represented as a dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
+        items (list): A list of items sorted by their classification (positive, hybrid, negative), RTWU, and support.
+
+        Global Variables:
+        None
+
+        Returns:
+        tuple: A tuple containing the EUCS matrix and the UL list.
+        """
         Db = sorted_transactions(items)
 
         UL_dict = {}
@@ -194,6 +305,17 @@ def EHMIN(Db, min_util, k):
         return EUCS, UL
 
     def EHMIN_Mine(P={}, Ul=[], pref=[]):   
+        """
+        Mine high-utility itemsets from a given prefix tree.
+
+        Parameters:
+        P (dict): A prefix tree node, where each node contains the item, utility, PRU, and transaction utilities.
+        Ul (list): A list of utility lists, where each utility list contains the item, utility, PRU, and transaction utilities.
+        pref (list): The current prefix.
+
+        Returns:
+        None
+        """
         pfutils = {}
         
         if P:
@@ -227,6 +349,17 @@ def EHMIN(Db, min_util, k):
                     EHMIN_Mine(uk, CL, list(pref) + [uk_key])
           
     def EHMIN_Combine(Uk={}, Ul={}, pfutils={}):
+        """
+        Combine two utility lists into one.
+
+        Parameters:
+        Uk (dict): The first utility list, which contains the item, utility, PRU, and transaction utilities.
+        Ul (dict): The second utility list, which contains the item, utility, PRU, and transaction utilities.
+        pfutils (dict): A dictionary containing the prefix utilities for each transaction.
+
+        Returns:
+        dict or None: The combined utility list or None if the combined utility is less than the minimum utility threshold.
+        """
         C = {
             "Item": Ul['Item'],
             "Utility": 0,
@@ -350,7 +483,7 @@ with(open("mushroom.txt", "r")) as f:
 #     }
 # ]
 
-Result = EHMIN(D, 25, 100)
+Result = EHMIN(D, 10000, 10)
 for r in Result:
       print(r)  
             

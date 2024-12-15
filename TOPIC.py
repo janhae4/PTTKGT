@@ -32,9 +32,9 @@ def TOPIC(D, k):
                 elif profit < 0:
                     eta.add(item)
 
-        delta = rho.intersection(eta)
-        rho.difference_update(delta)
-        eta.difference_update(delta)
+        delta = rho & eta
+        rho -= delta
+        eta -= delta
         return rho, delta, eta
 
     def u(X, transaction=None, D=None):
@@ -61,7 +61,8 @@ def TOPIC(D, k):
         if D and not transaction:
             return sum(
                 u(X, transaction=transaction) 
-                for transaction in D if all(item in transaction['Items'] for item in X)
+                for transaction in D 
+                if all(item in transaction['Items'] for item in X)
             )
             
         return 0
@@ -204,7 +205,7 @@ def TOPIC(D, k):
         rho, delta, _ = partion_items(D)
         return [item for item in rho|delta if rtwu(item, D) >= minU]
 
-    def remove_outside_items_database(D, items):
+    def remove_items_outside_items_database(D, items):
         """
         Remove items that are not in the given list from all transactions in the database.
 
@@ -272,6 +273,7 @@ def TOPIC(D, k):
         Dx = []
         for transaction in D:
             if X in transaction['Items']:
+                print(X)
                 index_x = transaction['Items'].index(X[-1]) + 1
                 if index_x < len(transaction['Items']):
                     Dx.append({
@@ -323,12 +325,11 @@ def TOPIC(D, k):
             B = list(X) + list(i)
             uB = u(B, D=Dx)              
 
-            Db = create_new_database(Dx, i)    
             if (uB >= minU):
                 topK_list.append([B, uB])
                 if (len(topK_list) > k):
-                    topK_list.pop(k)
-                    minU = uB
+                    topK_list.sort(key=lambda x: x[1], reverse=True)
+                    minU = topK_list.pop(k)[1]
             
             if (uB > minU):
                 searchN(eta, B, Dx, minU, topK_list)
@@ -370,8 +371,8 @@ def TOPIC(D, k):
             if (uB >= minU):
                 topK_list.append([B, uB])
                 if (len(topK_list) > k):
-                    topK_list.pop(k)
-                    minU = uB
+                    topK_list.sort(key=lambda x: x[1], reverse=True)
+                    minU = topK_list.pop(k)[1]
             
             UA_RSU = create_RSU_UA(Db, eta[eta.index(i) + 1:], B)
             primary_B = [z for z in eta if z in UA_RSU and UA_RSU[z] >= minU]
@@ -392,62 +393,81 @@ def TOPIC(D, k):
     eta_sorted = sorted(eta, key=lambda x: (0 if x in rho else 1 if x in delta else 2, rtwu(x, D)))
     
     items = secondary_items + eta_sorted
-    D = remove_outside_items_database(D, items)
+    D = remove_items_outside_items_database(D, items)
     D = remove_empty_items_database(D)
     D = sorted_transaction_items(D, items)
     D = sorted_transactions(D, items)
     
     UA_SU = create_RSU_UA(D)
     primary_items = [i for i in secondary_items if UA_SU[i] >= minU]
-    topK_list = search(eta_sorted, X, D, primary_items, secondary_items, minU, k_pattern)
+    search(eta_sorted, X, D, primary_items, secondary_items, minU, k_pattern)
 
-    for x in sorted(topK_list, key=lambda x: x[1], reverse=True):
+    for x in sorted(k_pattern, key=lambda x: x[1], reverse=True):
         print(x)
     
     
-D = [
-    {
-        'TID': 'T1',
-        'Items': ['a', 'b', 'd', 'e', 'f', 'g'],
-        'Quantities': [2, 2, 1, 3, 2, 1],
-        'Profits': [-2, 1, 4, 1, -1, -2]
-    },
-    {
-        'TID': 'T2',
-        'Items': ['b', 'c'],
-        'Quantities': [1, 5],
-        'Profits': [-1, 1]
-    },
-    {
-        'TID': 'T3',
-        'Items': ['b', 'c', 'd', 'e', 'f'],
-        'Quantities': [2, 1, 3, 2, 1],
-        'Profits': [-1, 1, 4, 1, -1]
-    },
-    {
-        'TID': 'T4',
-        'Items': ['c', 'd', 'e'],
-        'Quantities': [2, 1, 3],
-        'Profits': [1, 4, 1]
-    },
-    {
-        'TID': 'T5',
-        'Items': ['a', 'f'],
-        'Quantities': [2, 3],
-        'Profits': [2, -1]
-    },
-    {
-        'TID': 'T6',
-        'Items': ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
-        'Quantities': [2, 1, 4, 2, 1, 3, 1],
-        'Profits': [1, 1, 1, 4, 1, -1, -2]
-    },
-    {
-        'TID': 'T7',
-        'Items': ['b', 'c', 'e'],
-        'Quantities': [3, 2, 2],
-        'Profits': [1, 2, 2]
-    }
-]
+# D = [
+#     {
+#         'TID': 'T1',
+#         'Items': ['a', 'b', 'd', 'e', 'f', 'g'],
+#         'Quantities': [2, 2, 1, 3, 2, 1],
+#         'Profits': [-2, 1, 4, 1, -1, -2]
+#     },
+#     {
+#         'TID': 'T2',
+#         'Items': ['b', 'c'],
+#         'Quantities': [1, 5],
+#         'Profits': [-1, 1]
+#     },
+#     {
+#         'TID': 'T3',
+#         'Items': ['b', 'c', 'd', 'e', 'f'],
+#         'Quantities': [2, 1, 3, 2, 1],
+#         'Profits': [-1, 1, 4, 1, -1]
+#     },
+#     {
+#         'TID': 'T4',
+#         'Items': ['c', 'd', 'e'],
+#         'Quantities': [2, 1, 3],
+#         'Profits': [1, 4, 1]
+#     },
+#     {
+#         'TID': 'T5',
+#         'Items': ['a', 'f'],
+#         'Quantities': [2, 3],
+#         'Profits': [2, -1]
+#     },
+#     {
+#         'TID': 'T6',
+#         'Items': ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+#         'Quantities': [2, 1, 4, 2, 1, 3, 1],
+#         'Profits': [1, 1, 1, 4, 1, -1, -2]
+#     },
+#     {
+#         'TID': 'T7',
+#         'Items': ['b', 'c', 'e'],
+#         'Quantities': [3, 2, 2],
+#         'Profits': [1, 2, 2]
+#     }
+# ]
 
-TOPIC(D, 8)
+D = []
+i = 0
+with(open("dataset.txt", "r")) as f:
+    for line in f:
+        i += 1
+        line = line.strip()
+        data_split = line.split(":")
+        items = data_split[0].split(" ")
+        quantities = [1 for _ in range(len(items))]
+        utilities = list(map(int, data_split[2].split(" ")))
+        D.append({
+            "TID": i,
+            "Items": items,
+            "Quantities": quantities,
+            "Profits": utilities
+          })
+
+res = TOPIC(D, 5)
+for r in res:
+    print(r)

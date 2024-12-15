@@ -22,11 +22,15 @@ def EMHUN(D, minU, k):
         rho, delta, eta (set): Three disjoint sets of items.
         """
         rho, delta, eta = set(), set(), set()
-
+        UL = {}
         for transaction in D:
             items = transaction['Items']
             profits = transaction['Profits']
             for item, profit in zip(items, profits):
+                if item in UL:
+                    UL[item] += rtwu(transaction)
+                else:
+                    UL[item] = profit
                 if profit > 0:
                     rho.add(item)
                 elif profit < 0:
@@ -38,17 +42,7 @@ def EMHUN(D, minU, k):
         return rho, delta, eta
 
     def u(X, transaction=None, D=None):
-        """
-        Calculate the utility of a set of items X in a transaction or a database of transactions.
-
-        Parameters:
-        X (set or list): A set or list of items.
-        transaction (dict): A dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
-        D (list of dict): A list of transactions where each transaction is represented as a dictionary containing 'TID', 'Items', 'Quantities', and 'Profits'.
         
-        Returns:
-        float: The utility of X in the transaction or the database of transactions.
-        """
         if X == "":
             return 0
         
@@ -81,6 +75,8 @@ def EMHUN(D, minU, k):
         X = list(X)
         items = transaction["Items"]
         RE = items[items.index(X[-1]) + 1:]
+        print("X", X)
+        print("REEE", RE)
         return sum(
             u(x, transaction) 
             for x in RE if u(x, transaction) > 0
@@ -99,6 +95,7 @@ def EMHUN(D, minU, k):
         float: The remaining lower utility of X with respect to z in D.
         """
         items = list(X) + list(z)
+        print("X", X)
         return sum(
             u(X, transaction) + rru(X, transaction)
             for transaction in D if all(item in transaction["Items"] for item in items)
@@ -120,7 +117,7 @@ def EMHUN(D, minU, k):
             for item in items if u(item, transaction) > 0
         )
 
-    def rtwu(X, D):
+    def rtwu(X, D=None):
         """
         Calculate the total utility of a set of items X in a database of transactions D.
 
@@ -131,7 +128,7 @@ def EMHUN(D, minU, k):
         Returns:
         float: The total utility of X in D.
         """
-        items = list(X)
+        items = X[0]
         return sum(
             rtu(transaction)
             for transaction in D if all(item in transaction["Items"] for item in items)
@@ -213,10 +210,19 @@ def EMHUN(D, minU, k):
         Returns:
         list of dict: The modified database with items not in the given list removed from all transactions.
         """
+        allowed_items = set(items)
         for transaction in D:
-            transaction['Items'] = [item for item in transaction['Items'] if item in items]
+            filtered_data = [
+                (item, qty, profit)
+                for item, qty, profit 
+                in zip(transaction["Items"], transaction["Quantities"], transaction["Profits"])
+                if item in allowed_items
+            ]
+            if filtered_data:
+                transaction["Items"], transaction["Quantities"], transaction["Profits"] = zip(*filtered_data)
+            else:
+                transaction["Items"], transaction["Quantities"], transaction["Profits"] = [], [], []
         return D
-        
     def sorted_transaction_items(D, items):
         """
         Sort the items, profits, and quantities within each transaction in the database D based on a specified order of items.
@@ -228,11 +234,14 @@ def EMHUN(D, minU, k):
         Returns:
         list of dict: The modified database with items, profits, and quantities sorted within each transaction according to the specified order.
         """
-        ordered_map = {item: i for i, item in enumerate(items)}
+        ordered_map = {item: i for i, item in enumerate(items)} 
         for transaction in D:
-            zip_trans = list(zip(transaction['Items'], transaction['Profits'], transaction['Quantities']))
-            sorted_item = sorted(zip_trans, key = lambda x: ordered_map.get(x[0]))
-            transaction['Items'], transaction['Profits'], transaction['Quantities'] = zip(*sorted_item)
+            zipped_data = list(zip(transaction["Items"], transaction["Profits"], transaction["Quantities"]))
+            sorted_data = sorted(zipped_data, key=lambda x: ordered_map.get(x[0], float("inf")))
+            if sorted_data:
+                transaction["Items"], transaction["Profits"], transaction["Quantities"] = zip(*sorted_data)
+            else:
+                transaction["Items"], transaction["Profits"], transaction["Quantities"] = [], [], [] 
         return D
 
     def sorted_transactions(D, items):
@@ -248,7 +257,7 @@ def EMHUN(D, minU, k):
         """
         
         ordered_map = {item: i for i, item in enumerate(items)}
-        return sorted(D, key = lambda x: (ordered_map.get(x['Items'][-1]), len(x['Items'])), reverse=True)
+        return sorted(D, key = lambda x: (ordered_map.get(x['Items'][-1], float('inf')), len(x['Items'])), reverse=True)
 
     def create_new_database(D, X):
         """
@@ -305,14 +314,15 @@ def EMHUN(D, minU, k):
                 countK += 1
                 
             if countK == k:
-                return 
+                break 
             
             if (uB > minU):
                 searchN(eta, B, Dx, minU, countK, k)
                 
             UA_RLU = create_RLU_UA(Dx, secondary_items[secondary_items.index(i) + 1:], B)
             UA_RSU = create_RSU_UA(Dx, secondary_items[secondary_items.index(i) + 1:], B)
-                
+            print("RLU", UA_RLU)
+            print("RSU", UA_RSU)
             primary_B = [z for z in secondary_items if z in UA_RSU and UA_RSU[z] >= minU]
             secondary_B = [z for z in secondary_items if z in UA_RLU and UA_RLU[z] >= minU]
             
@@ -346,7 +356,7 @@ def EMHUN(D, minU, k):
                 countK += 1
                 
             if countK == k:
-                return 
+                break 
             
             UA_RSU = create_RSU_UA(Db, eta[eta.index(i) + 1:], B)
             primary_B = [z for z in eta if z in UA_RSU and UA_RSU[z] >= minU]
@@ -359,10 +369,8 @@ def EMHUN(D, minU, k):
     
     #Step 5
     UA = create_RLU_UA(D)
-    print(UA)
-    
     #Step 6, 7
-    secondary_items = sorted(UA, key=lambda x: (0 if x in rho else 1 if x in delta else 2, UA[x]))
+    secondary_items = sorted(UA, key=lambda x: (0 if x in rho else 1 if x in delta else 2, UA[x], x))
     eta_sorted = sorted(eta, key=lambda x: (0 if x in rho else 1 if x in delta else 2, rtwu(x, D)))
     
     #Step 8,9,10
@@ -373,75 +381,59 @@ def EMHUN(D, minU, k):
     
     #Step 11
     UA_SU = create_RSU_UA(D)
-    
+    print(UA_SU)
     #Step 12
     primary_items = [i for i in secondary_items if UA_SU[i] >= minU]
-    print("PRIMARY_ITEMS: ", primary_items)
+    print(primary_items)
     #Step 13
     print(search(eta_sorted, X, D, primary_items, secondary_items, minU, 0, k))
     
     
-# D = [
-#     {
-#         'TID': 'T1',
-#         'Items': ['a', 'b', 'd', 'e', 'f', 'g'],
-#         'Quantities': [2, 2, 1, 3, 2, 1],
-#         'Profits': [-2, 1, 4, 1, -1, -2]
-#     },
-#     {
-#         'TID': 'T2',
-#         'Items': ['b', 'c'],
-#         'Quantities': [1, 5],
-#         'Profits': [-1, 1]
-#     },
-#     {
-#         'TID': 'T3',
-#         'Items': ['b', 'c', 'd', 'e', 'f'],
-#         'Quantities': [2, 1, 3, 2, 1],
-#         'Profits': [-1, 1, 4, 1, -1]
-#     },
-#     {
-#         'TID': 'T4',
-#         'Items': ['c', 'd', 'e'],
-#         'Quantities': [2, 1, 3],
-#         'Profits': [1, 4, 1]
-#     },
-#     {
-#         'TID': 'T5',
-#         'Items': ['a', 'f'],
-#         'Quantities': [2, 3],
-#         'Profits': [2, -1]
-#     },
-#     {
-#         'TID': 'T6',
-#         'Items': ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
-#         'Quantities': [2, 1, 4, 2, 1, 3, 1],
-#         'Profits': [1, 1, 1, 4, 1, -1, -2]
-#     },
-#     {
-#         'TID': 'T7',
-#         'Items': ['b', 'c', 'e'],
-#         'Quantities': [3, 2, 2],
-#         'Profits': [1, 2, 2]
-#     }
-# ]
-D = []
-i = 0
-with(open("mushroom.txt", "r")) as f:
-    for line in f:
-        i += 1
-        line = line.strip()
-        data_split = line.split(":")
-        items = data_split[0].split(" ")
-        quantities = [1 for _ in range(len(items))]
-        utilities = list(map(int, data_split[2].split(" ")))
-        D.append({
-            "TID": i,
-            "Items": items,
-            "Quantities": quantities,
-            "Profits": utilities
-          })
-    
-        
+D = [
+    {
+        'TID': 'T1',
+        'Items': ['a', 'b', 'd', 'e', 'f', 'g'],
+        'Quantities': [2, 2, 1, 3, 2, 1],
+        'Profits': [-2, 1, 4, 1, -1, -2]
+    },
+    {
+        'TID': 'T2',
+        'Items': ['b', 'c'],
+        'Quantities': [1, 5],
+        'Profits': [-1, 1]
+    },
+    {
+        'TID': 'T3',
+        'Items': ['b', 'c', 'd', 'e', 'f'],
+        'Quantities': [2, 1, 3, 2, 1],
+        'Profits': [-1, 1, 4, 1, -1]
+    },
+    {
+        'TID': 'T4',
+        'Items': ['c', 'd', 'e'],
+        'Quantities': [2, 1, 3],
+        'Profits': [1, 4, 1]
+    },
+    {
+        'TID': 'T5',
+        'Items': ['a', 'f'],
+        'Quantities': [2, 3],
+        'Profits': [2, -1]
+    },
+    {
+        'TID': 'T6',
+        'Items': ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+        'Quantities': [2, 1, 4, 2, 1, 3, 1],
+        'Profits': [1, 1, 1, 4, 1, -1, -2]
+    },
+    {
+        'TID': 'T7',
+        'Items': ['b', 'c', 'e'],
+        'Quantities': [3, 2, 2],
+        'Profits': [1, 2, 2]
+    }
+]
 
-EMHUN(D, 25, 5)
+res = EMHUN(D, 100, 10)
+for r in res:
+    print(r)

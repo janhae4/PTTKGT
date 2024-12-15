@@ -1,0 +1,9 @@
+        print(items_sorted)
+        print()
+        print("\t", "\t".join(items_sorted))
+        for i in range(len(UL)):
+            print(items_sorted[i], end="\t")
+            for j in range(len(UL)):
+                print(EUCS[i][j], end="\t")
+            print()
+        print()
